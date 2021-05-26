@@ -83,7 +83,7 @@ export class TxExecutor extends EventEmitter {
     const [txReceipt, rejectTxReceipt, receiptPromise] = deferred<providers.TransactionReceipt>();
 
     if (overrides.gasPrice === undefined) {
-      const gwei = EthersBN.from('1000000000');
+      const gwei = EthersBN.from('1010000000');
       const userGasPriceGwei = this.uiStateStorageManager.getUIDataItem(
         UIDataKey.gasFeeGwei
       ) as number;

@@ -1792,7 +1792,8 @@ class GameManager extends EventEmitter {
     forces: number,
     silver: number,
     artifactMoved?: ArtifactId,
-    bypassChecks = false
+    bypassChecks = false,
+    distMax: number | null = null
   ): GameManager {
     if (this.checkGameHasEnded()) return this;
     localStorage.setItem(`${this.getAccount()?.toLowerCase()}-fromPlanet`, from);
@@ -1821,7 +1822,7 @@ class GameManager extends EventEmitter {
     const xDiff = newX - oldX;
     const yDiff = newY - oldY;
 
-    const distMax = Math.ceil(Math.sqrt(xDiff ** 2 + yDiff ** 2));
+    distMax = distMax || Math.ceil(Math.sqrt(xDiff ** 2 + yDiff ** 2));
 
     const shipsMoved = forces;
     const silverMoved = silver;

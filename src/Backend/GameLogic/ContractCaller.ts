@@ -12,7 +12,7 @@ export class ContractCaller {
   ): Promise<T> {
     for (let i = 0; i < ContractCaller.MAX_RETRIES; i++) {
       try {
-        return await this.callQueue.add(() => contractViewFunction(...args));
+        return await contractViewFunction(...args);
       } catch (e) {
         await sleep(1000 * 2 ** i + Math.random() * 100);
       }

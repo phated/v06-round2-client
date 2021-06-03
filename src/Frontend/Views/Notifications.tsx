@@ -2,7 +2,7 @@ import _ from 'lodash';
 import React, { useState, useEffect } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { UIDataKey } from '../../Backend/Storage/UIStateStorageManager';
-import { EthTxType } from '@darkforest_eth/types';
+import { EthTxType, EthTxStatus } from '@darkforest_eth/types';
 import NotificationManager, {
   NotificationInfo,
   NotificationType,
@@ -120,7 +120,8 @@ export function NotificationsPane() {
         const newArr = _.clone(arr);
         for (let i = 0; i < arr.length; i++) {
           if (arr[i].id === notif.id) {
-            newArr[i] = notif;
+            if (notif.txStatus === EthTxStatus.Confirm) newArr.splice(i, 1);
+            else newArr[i] = notif;
             return newArr;
           }
         }

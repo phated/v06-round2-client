@@ -240,19 +240,21 @@ class PersistentChunkStore implements ChunkStore {
   // if the chunk was loaded from storage, then we don't need to recommit it
   // unless it can be promoted (which shouldn't ever happen, but we handle
   // just in case)
-  public updateChunk(e: ExploredChunkData, loadedFromStorage = false): void {
-    if (this.hasMinedChunk(e.chunkFootprint)) {
+  public updateChunk(e: ExploredChunkData, loadedFromStorage = false, override = false): void {
+    if (override !== this.hasMinedChunk(e.chunkFootprint)) {
       return;
     }
     const tx: DBTx = [];
 
-    // if this is a mega-chunk, delete all smaller chunks inside of it
-    const minedSubChunks = this.getMinedSubChunks(e);
-    for (const subChunk of minedSubChunks) {
-      tx.push({
-        type: DBActionType.DELETE,
-        dbKey: getChunkKey(subChunk.chunkFootprint),
-      });
+    if (!override) {
+      // if this is a mega-chunk, delete all smaller chunks inside of it
+      const minedSubChunks = this.getMinedSubChunks(e);
+      for (const subChunk of minedSubChunks) {
+        tx.push({
+          type: DBActionType.DELETE,
+          dbKey: getChunkKey(subChunk.chunkFootprint),
+        });
+      }
     }
 
     addToChunkMap(
@@ -285,7 +287,7 @@ class PersistentChunkStore implements ChunkStore {
     }
 
     // can stop here, if we're just loading into in-memory store from storage
-    if (loadedFromStorage) {
+    if (!override && loadedFromStorage) {
       return;
     }
 

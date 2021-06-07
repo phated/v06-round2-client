@@ -939,55 +939,55 @@
     enabled "2.0.x"
     kuler "^2.0.0"
 
-"@darkforest_eth/constants@6.1.6":
-  version "6.1.6"
-  resolved "https://registry.yarnpkg.com/@darkforest_eth/constants/-/constants-6.1.6.tgz#a48e7d7c0ab814bc7975c1fc7e660c312af0eb4b"
-  integrity sha512-cBSSEhkQ4nJ43f63iGBtVkbJKMw3tylv+5kEDtDmL6GCfdL3i6AdtmVIsZVI4z0yWKermKtxWgCvX4a87vlfag==
+"@darkforest_eth/constants@6.1.27":
+  version "6.1.27"
+  resolved "https://registry.yarnpkg.com/@darkforest_eth/constants/-/constants-6.1.27.tgz#35e13e2ad613617a9d3e376508f9d7222762dae4"
+  integrity sha512-jQaMa/XmImnid7Alr/r34EuwLN7xic7prF1QyEGYYEZH5bjrtzajW+nfusff0ZI/7YmDfDt32g0/Wf02iS2h7g==
   dependencies:
-    "@darkforest_eth/types" "6.1.6"
+    "@darkforest_eth/types" "6.1.27"
     big-integer "^1.6.48"
 
-"@darkforest_eth/contracts@6.1.6":
-  version "6.1.6"
-  resolved "https://registry.yarnpkg.com/@darkforest_eth/contracts/-/contracts-6.1.6.tgz#b020a4186d77c47aa5d39e671f0586d25d5eee60"
-  integrity sha512-ckVpnNEbZlK8+truEuPk4KiSOOH+vLIyl90PK3yr7tsTnJXeBX7BH7PS8zLjWf9Dp1N0PjUqUzBvwF5AUsKYfQ==
+"@darkforest_eth/contracts@6.1.27":
+  version "6.1.27"
+  resolved "https://registry.yarnpkg.com/@darkforest_eth/contracts/-/contracts-6.1.27.tgz#bf7ef2fbc639cf0de359cbf49e6971bc9b16a469"
+  integrity sha512-tIx/Z3rEYzDTWhAvKqKEhgPhqFaD/cfU2Hsm4pzcdmEYPNh9BT6/vP/in2btb5TSN9DRcO01p5azRO1Oxt01eA==
 
-"@darkforest_eth/hashing@6.1.6":
-  version "6.1.6"
-  resolved "https://registry.yarnpkg.com/@darkforest_eth/hashing/-/hashing-6.1.6.tgz#96372a0813447d6e0f3d1dac3eb11882c9450a41"
-  integrity sha512-bUwGUyK60EA0IXF+8b/SritOsARM4IP+qb9iB/1zW+ejj7z1LOZkwHIHmZRMlMBFVfyADID83RhT717vtLbbZA==
+"@darkforest_eth/hashing@6.1.27":
+  version "6.1.27"
+  resolved "https://registry.yarnpkg.com/@darkforest_eth/hashing/-/hashing-6.1.27.tgz#02408b938040d70d91393420ae0f770b5bcfd3e4"
+  integrity sha512-uE1nlrRXXqrZNKwMFLYIKDxJVmtWdv/hrG1AejJ9XIsgCAZL1uDOxfdHSGCez2Ew08JelUmMfKqG7FwYG/fpgg==
   dependencies:
     big-integer "^1.6.48"
 
-"@darkforest_eth/hexgen@6.1.6":
-  version "6.1.6"
-  resolved "https://registry.yarnpkg.com/@darkforest_eth/hexgen/-/hexgen-6.1.6.tgz#5adddc3100d28508d5e39efe4f649da398234247"
-  integrity sha512-+yCvjio7ey90Y/MuBVDrHVd5IjSKDu3AJpKq83LygSUm3i37wFmRl5D55x5zWXFo0OuZFi5c4Ecz/J+D8L/UwA==
+"@darkforest_eth/hexgen@6.1.27":
+  version "6.1.27"
+  resolved "https://registry.yarnpkg.com/@darkforest_eth/hexgen/-/hexgen-6.1.27.tgz#fbbfed0f5378400022377c201a9541ca07dfca46"
+  integrity sha512-pgnLfEy0mfK88l0OYWVPqxmfm0kHd77JrZb3dWTQlQudmGFk95HXxSapN8irXmQ2Lm5NRAtKZ4LtHXnt2V1sNw==
   dependencies:
-    "@darkforest_eth/types" "6.1.6"
+    "@darkforest_eth/types" "6.1.27"
     big-integer "^1.6.48"
 
-"@darkforest_eth/serde@6.1.6":
-  version "6.1.6"
-  resolved "https://registry.yarnpkg.com/@darkforest_eth/serde/-/serde-6.1.6.tgz#0e348e7ff6ee36674f0fda61b14ed94979e71138"
-  integrity sha512-pih2ZdNRnXQLSJsw7Cia/GtQdObO45GKoMQgSQx9mxjcvHWzULnlX4TnFuMFVxnEx8g1CI8vHTxHegiFj0/fiA==
+"@darkforest_eth/serde@6.1.27":
+  version "6.1.27"
+  resolved "https://registry.yarnpkg.com/@darkforest_eth/serde/-/serde-6.1.27.tgz#699941251a2c72504b4b16214072e07d88bba35e"
+  integrity sha512-pEs54Wc0LQvM0te6gzU016D+1Z3fxVxbXjLZ1hBR1cXeAa4QbrQBzK3siWW9tFq+ZuY7hj1GvdDIR6SJAhHYWQ==
   dependencies:
-    "@darkforest_eth/constants" "6.1.6"
-    "@darkforest_eth/contracts" "6.1.6"
-    "@darkforest_eth/hexgen" "6.1.6"
-    "@darkforest_eth/types" "6.1.6"
+    "@darkforest_eth/constants" "6.1.27"
+    "@darkforest_eth/contracts" "6.1.27"
+    "@darkforest_eth/hexgen" "6.1.27"
+    "@darkforest_eth/types" "6.1.27"
     big-integer "^1.6.48"
     ethers "^5.0.7"
 
-"@darkforest_eth/snarks@6.1.6":
-  version "6.1.6"
-  resolved "https://registry.yarnpkg.com/@darkforest_eth/snarks/-/snarks-6.1.6.tgz#accc733f0f38739ba847543fed9fc9df40b215cc"
-  integrity sha512-hHa8DxXhBTW4m/IYKpv1YtKREP4J1BjxS9G2hui8vwEuVHSCDIhYU+bz1gWdjtedQe21gvvil0OEITLP9flSig==
+"@darkforest_eth/snarks@6.1.27":
+  version "6.1.27"
+  resolved "https://registry.yarnpkg.com/@darkforest_eth/snarks/-/snarks-6.1.27.tgz#b566b78aaadad5390e47423cdfadc42eea7d79b7"
+  integrity sha512-TqteoKgs3iKDZbDtijW0f95OCiqweNpfm49GJ2VR8FU/dLUKReSOjHnKVepjd1n5gnRnyhNOcqsrxeZID/3dew==
 
-"@darkforest_eth/types@6.1.6":
-  version "6.1.6"
-  resolved "https://registry.yarnpkg.com/@darkforest_eth/types/-/types-6.1.6.tgz#ebc31819f60b786a8cbbaf850ccd4259d601a9c8"
-  integrity sha512-CxKiHJEuyp5gVQI8iM+E1rJfz05S/pE6kKkQSRu+3MMK1LYumYe1B5wQRp5c/J4a3dF0pzgXe4XNwtGFok293Q==
+"@darkforest_eth/types@6.1.27":
+  version "6.1.27"
+  resolved "https://registry.yarnpkg.com/@darkforest_eth/types/-/types-6.1.27.tgz#1f165c1807fe16755d04380408e64598ac66e207"
+  integrity sha512-mgAMSbxcGqptMUdoG/Njb2iospHH++sF7h5lxsm0erKQHyJLtAi3fGVNYSMUYV8cmQTdLiX5QdZGHqHSwLg4SQ==
   dependencies:
     big-integer "^1.6.48"
     ethers "^5.0.7"
@@ -4119,13 +4119,6 @@ concat-stream@^1.5.0:
     inherits "^2.0.3"
     readable-stream "^2.2.2"
     typedarray "^0.0.6"
-
-concat-stream@^2.0.0, "concat-stream@github:hugomrdias/concat-stream#feat/smaller":
-  version "2.0.0"
-  resolved "https://codeload.github.com/hugomrdias/concat-stream/tar.gz/057bc7b5d6d8df26c8cf00a3f151b6721a0a8034"
-  dependencies:
-    inherits "^2.0.3"
-    readable-stream "^3.0.2"
 
 concordance@^4.0.0:
   version "4.0.0"
@@ -7560,33 +7553,12 @@ jmespath@0.15.0:
   resolved "https://registry.yarnpkg.com/jmespath/-/jmespath-0.15.0.tgz#a3f222a9aae9f966f5d27c796510e28091764217"
   integrity sha1-o/Iiqarp+Wb10nx5ZRDigJF2Qhc=
 
-joi@^17.3.0:
-  version "17.4.0"
-  resolved "https://registry.yarnpkg.com/joi/-/joi-17.4.0.tgz#b5c2277c8519e016316e49ababd41a1908d9ef20"
-  integrity sha512-F4WiW2xaV6wc1jxete70Rw4V/VuMd6IN+a5ilZsxG4uYtUXWu2kq9W5P2dz30e7Gmw8RCbY/u/uk+dMPma9tAg==
-  dependencies:
-    "@hapi/hoek" "^9.0.0"
-    "@hapi/topo" "^5.0.0"
-    "@sideway/address" "^4.1.0"
-    "@sideway/formula" "^3.0.0"
-    "@sideway/pinpoint" "^2.0.0"
-
-js-git@^0.7.8:
-  version "0.7.8"
-  resolved "https://registry.yarnpkg.com/js-git/-/js-git-0.7.8.tgz#52fa655ab61877d6f1079efc6534b554f31e5444"
-  integrity sha1-UvplWrYYd9bxB578ZTS1VPMeVEQ=
-  dependencies:
-    bodec "^0.1.0"
-    culvert "^0.1.2"
-    git-sha1 "^0.1.2"
-    pako "^0.2.5"
-
 js-quadtree@^3.3.5:
   version "3.3.5"
   resolved "https://registry.yarnpkg.com/js-quadtree/-/js-quadtree-3.3.5.tgz#bcf0a84b97e392e32336b8cf0dfb530e71c30b1a"
   integrity sha512-lVpcF/HgHVlxY/BkaVaZwgoPZKMW7qmcFEJeHNPR0QSXHJxIgXF1OJOExW+IJsoQcpAreJUr4A5DPcUrNjbv8A==
 
-js-sha3@0.5.7, js-sha3@^0.5.7:
+js-sha3@0.5.7:
   version "0.5.7"
   resolved "https://registry.yarnpkg.com/js-sha3/-/js-sha3-0.5.7.tgz#0d4ffd8002d5333aabaf4a23eed2f6374c9f28e7"
   integrity sha1-DU/9gALVMzqrr0oj7tL2N0yfKOc=

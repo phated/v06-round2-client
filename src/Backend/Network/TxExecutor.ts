@@ -84,9 +84,12 @@ export class TxExecutor extends EventEmitter {
 
     if (overrides.gasPrice === undefined) {
       const gwei = EthersBN.from('1010000000');
-      const userGasPriceGwei = this.uiStateStorageManager.getUIDataItem(
-        UIDataKey.gasFeeGwei
-      ) as number;
+      let userGasPriceGwei = getSetting(this.eth.getAddress(), Setting.GasFeeGwei);
+
+      // TODO: this value should be pulled from blockscout API or something
+      if (type === EthTxType.INIT) {
+        userGasPriceGwei = '1';
+      }
 
       overrides.gasPrice = gwei.mul(userGasPriceGwei);
     }

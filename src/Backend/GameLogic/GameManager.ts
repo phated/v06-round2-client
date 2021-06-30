@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { BigInteger } from 'big-integer';
 import {
-  ExploredChunkData,
+  Chunk,
   Rectangle,
   isLocatable,
   HashConfig,
@@ -73,10 +73,12 @@ import {
   RevealedCoords,
   LocatablePlanet,
   RevealedLocation,
+  PlanetMessageType,
+  SignedMessage,
 } from '@darkforest_eth/types';
 import NotificationManager from '../../Frontend/Game/NotificationManager';
 import { MIN_CHUNK_SIZE } from '../../Frontend/Utils/constants';
-import { monomitter, Monomitter } from '../../Frontend/Utils/Monomitter';
+import { monomitter, Monomitter, Subscription } from '../../Frontend/Utils/Monomitter';
 import { TerminalTextStyle } from '../../Frontend/Utils/TerminalTypes';
 import UIEmitter from '../../Frontend/Utils/UIEmitter';
 import { TerminalHandle } from '../../Frontend/Views/Terminal';
@@ -91,10 +93,20 @@ import { isActivated } from './ArtifactUtils';
 import stringify from 'json-stable-stringify';
 import { getConversation, startConversation, stepConversation } from '../Network/ConversationAPI';
 import { address, locationIdToDecStr, locationIdFromBigInt } from '@darkforest_eth/serde';
-import UIStateStorageManager, { UIDataKey } from '../Storage/UIStateStorageManager';
-import { CORE_CONTRACT_ADDRESS } from '@darkforest_eth/contracts';
 import { InitialGameStateDownloader } from './InitialGameStateDownloader';
 import { Radii } from './ViewportEntities';
+import { BLOCK_EXPLORER_URL } from '../../Frontend/Utils/constants';
+import { Diagnostics } from '../../Frontend/Panes/DiagnosticsPane';
+import {
+  pollSetting,
+  setSetting,
+  Setting,
+  settingChanged$,
+  getNumberSetting,
+} from '../../Frontend/Utils/SettingsHooks';
+import { addMessage, deleteMessages, getMessagesOnPlanets } from '../Network/MessageAPI';
+import { getEmojiMessage } from './ArrivalUtils';
+import { easeInAnimation, emojiEaseOutAnimation } from '../Utils/Animation';
 
 export enum GameManagerEvent {
   PlanetUpdate = 'PlanetUpdate',
@@ -104,33 +116,208 @@ export enum GameManagerEvent {
   ArtifactUpdate = 'ArtifactUpdate',
   Moved = 'Moved',
 }
-class GameManager extends EventEmitter {
-  private readonly terminal: React.MutableRefObject<TerminalHandle | undefined>;
-  private readonly account: EthAddress | undefined;
-  private readonly players: Map<string, Player>;
-  private readonly contractsAPI: ContractsAPI;
-  private readonly persistentChunkStore: PersistentChunkStore;
-  private readonly snarkHelper: SnarkArgsHelper;
-  private readonly entityStore: GameObjects;
-  private readonly useMockHash: boolean;
-  private readonly contractConstants: ContractConstants;
-  private readonly endTimeSeconds: number = 1643587533; // jan 2022
-  private readonly ethConnection: EthConnection;
-  private readonly hashConfig: HashConfig;
-  private readonly planetHashMimc: (...inputs: number[]) => BigInteger;
-  private readonly uiStateStorageManager: UIStateStorageManager;
 
+class GameManager extends EventEmitter {
+  /**
+   * This variable contains the internal state of objects that live in the game world.
+   */
+  private readonly entityStore: GameObjects;
+
+  /**
+   * Kind of hacky, but we store a reference to the terminal that the player sees when the initially
+   * load into the game. This is the same exact terminal that appears inside the collapsable right
+   * bar of the game.
+   */
+  private readonly terminal: React.MutableRefObject<TerminalHandle | undefined>;
+
+  /**
+   * The ethereum address of the player who is currently logged in. We support 'no account',
+   * represented by `undefined` in the case when you want to simply load the game state from the
+   * contract and view it without be able to make any moves.
+   */
+  private readonly account: EthAddress | undefined;
+
+  /**
+   * Map from ethereum addresses to player objects. This isn't stored in {@link GameObjects},
+   * because it's not techincally an entity that exists in the world. A player just controls planets
+   * and artifacts that do exist in the world.
+   *
+   * @todo move this into a new `Players` class.
+   */
+  private readonly players: Map<string, Player>;
+
+  /**
+   * Allows us to make contract calls, and execute transactions. Be careful about how you use this
+   * guy. You don't want to cause your client to send an excessive amount of traffic to whatever
+   * node you're connected to.
+   *
+   * Interacting with the blockchain isn't free, and we need to be mindful about about the way our
+   * application interacts with the blockchain. The current rate limiting strategy consists of three
+   * points:
+   *
+   * - data that needs to be fetched often should be fetched in bulk.
+   * - rate limit smart contract calls (reads from the blockchain), implemented by
+   *   {@link ContractCaller} and transactions (writes to the blockchain on behalf of the player),
+   *   implemented by {@link TxExecutor} via two separately tuned {@link ThrottledConcurrentQueue}s.
+   */
+  private readonly contractsAPI: ContractsAPI;
+
+  /**
+   * An object that syncs any newly added or deleted chunks to the player's IndexedDB.
+   *
+   * @todo it also persists other game data to IndexedDB. This class needs to be renamed `GameSaver`
+   * or something like that.
+   */
+  private readonly persistentChunkStore: PersistentChunkStore;
+
+  /**
+   * Responsible for generating snark proofs.
+   */
+  private readonly snarkHelper: SnarkArgsHelper;
+
+  /**
+   * In debug builds of the game, we can connect to a set of contracts deployed to a local
+   * blockchain, which are tweaked to not verify planet hashes, meaning we can use a faster hash
+   * function with similar properties to mimc. This allows us to mine the map faster in debug mode.
+   *
+   * @todo move this into a separate `GameConfiguration` class.
+   */
+  private readonly useMockHash: boolean;
+
+  /**
+   * Game parameters set by the contract. Stuff like perlin keys, which are important for mining the
+   * correct universe, or the time multiplier, which allows us to tune how quickly voyages go.
+   *
+   * @todo move this into a separate `GameConfiguration` class.
+   */
+  private readonly contractConstants: ContractConstants;
+
+  /**
+   * @todo change this to the correct timestamp each round.
+   */
+  private readonly endTimeSeconds: number = 1643587533; // jan 2022
+
+  /**
+   * An interface to the blockchain that is a little bit lower-level than {@link ContractsAPI}. It
+   * allows us to do basic operations such as wait for a transaction to complete, check the player's
+   * address and balance, etc.
+   */
+  private readonly ethConnection: EthConnection;
+
+  /**
+   * Each round we change the hash configuration of the game. The hash configuration is download
+   * from the blockchain, and essentially acts as a salt, permuting the universe into a unique
+   * configuration for each new round.
+   *
+   * @todo deduplicate this and `useMockHash` somehow.
+   */
+  private readonly hashConfig: HashConfig;
+
+  /**
+   * The aforementioned hash function. In debug mode where `DISABLE_ZK_CHECKS` is on, we use a
+   * faster hash function. Othewise, in production mode, use MiMC hash (https://byt3bit.github.io/primesym/).
+   */
+  private readonly planetHashMimc: (...inputs: number[]) => BigInteger;
+
+  /**
+   * This is kept relatively up-to-date with the balance of the player's wallet on the latest block
+   * of whatever blockchain we're connected to.
+   *
+   * @todo move this into a new `PlayerState` class.
+   */
   private balance: number;
+
+  /**
+   * Any time the balance of the player's address changes, we publish an event here.
+   *
+   * @todo move this into a new `PlayerState` class.
+   */
   private myBalance$: Monomitter<number>;
+
+  /**
+   * Handle to an interval that periodically refreshes the player's balance.
+   *
+   * @todo move this into a new `PlayerState` class.
+   */
   private balanceInterval: ReturnType<typeof setInterval>;
+
+  /**
+   * Handle to an interval that periodically refreshes some information about the player from the
+   * blockchain.
+   *
+   * @todo move this into a new `PlayerState` class.
+   */
+  private playerInterval: ReturnType<typeof setInterval>;
+
+  /**
+   * Manages the process of mining new space territory.
+   */
   private minerManager?: MinerManager;
+
+  /**
+   * Continuously updated value representing the total hashes per second that the game is currently
+   * mining the universe at.
+   *
+   * @todo keep this in {@link MinerManager}
+   */
   private hashRate: number;
+
+  /**
+   * The spawn location of the current player.
+   *
+   * @todo, make this smarter somehow. It's really annoying to have to import world coordinates, and
+   * get them wrong or something. Maybe we need to mark a planet, once it's been initialized
+   * contract-side, as the homeworld of the user who initialized on it. That way, when you import a
+   * new account into the game, and you import map data that contains your home planet, the client
+   * would be able to automatically detect which planet is the player's home planet.
+   *
+   * @todo move this into a new `PlayerState` class.
+   */
   private homeLocation: WorldLocation | undefined;
+
+  /**
+   * Sometimes the universe gets bigger... Sometimes it doesn't.
+   *
+   * @todo move this into a new `GameConfiguration` class.
+   */
   private worldRadius: number;
+
+  /**
+   * Price of a single gpt credit, which buys you a single interaction with the GPT-powered AI
+   * Artifact Chat Bots.
+   *
+   * @todo move this into a new `GameConfiguration` class.
+   */
   private gptCreditPriceEther: number;
+
+  /**
+   * Whenever the price of single GPT credit changes, we emit that event here.
+   */
   private gptCreditPriceEtherEmitter$: Monomitter<number>;
+
+  /**
+   * The total amount of GPT credits that belong to the current player.
+   *
+   * @todo move this into a new `PlayerState` class.
+   */
   private myGPTCredits: number;
+
+  /**
+   * Whenever the amount of the GPT credits that this player owns changes, we publish an event here.
+   *
+   * @todo move this into a new `PlayerState` class.
+   */
   private myGPTCredits$: Monomitter<number>;
+
+  /**
+   * Diagnostic information about the game.
+   */
+  private diagnostics: Diagnostics;
+
+  /**
+   * Subscription to act on setting changes
+   */
+  private settingsSubscription: Subscription | undefined;
 
   public get planetRarity(): number {
     return this.contractConstants.PLANET_RARITY;
@@ -156,10 +343,22 @@ class GameManager extends EventEmitter {
     artifacts: Map<ArtifactId, Artifact>,
     ethConnection: EthConnection,
     gptCreditPriceEther: number,
-    myGPTCredits: number,
-    uiStateStorageManager: UIStateStorageManager
+    myGPTCredits: number
   ) {
     super();
+
+    this.diagnostics = {
+      totalPlanets: 0,
+      visiblePlanets: 0,
+      visibleChunks: 0,
+      fps: 0,
+      chunkUpdates: 0,
+      callsInQueue: 0,
+      totalCalls: 0,
+      totalTransactions: 0,
+      transactionsInQueue: 0,
+      totalChunks: 0,
+    };
 
     this.terminal = terminal;
     this.account = account;
@@ -174,7 +373,6 @@ class GameManager extends EventEmitter {
     this.myGPTCredits = myGPTCredits;
     this.myGPTCredits$.publish(myGPTCredits);
     this.gptCreditPriceEtherEmitter$.publish(gptCreditPriceEther);
-    this.uiStateStorageManager = uiStateStorageManager;
 
     this.hashConfig = {
       planetHashKey: contractConstants.PLANETHASH_KEY,
@@ -230,9 +428,24 @@ class GameManager extends EventEmitter {
           this.myBalance$.publish(balance);
         });
       }
+    }, 1000);
+
+    this.playerInterval = setInterval(() => {
+      if (this.account) {
+        this.hardRefreshPlayer(this.account);
+      }
     }, 5000);
 
     this.hashRate = 0;
+
+    this.settingsSubscription = settingChanged$.subscribe((setting: Setting) => {
+      if (setting === Setting.MiningCores) {
+        if (this.minerManager) {
+          const cores = getNumberSetting(this.account, Setting.MiningCores);
+          this.minerManager.setCores(cores);
+        }
+      }
+    });
   }
 
   public getEthConnection() {
@@ -248,6 +461,8 @@ class GameManager extends EventEmitter {
     this.contractsAPI.destroy();
     this.persistentChunkStore.destroy();
     clearInterval(this.balanceInterval);
+    clearInterval(this.playerInterval);
+    this.settingsSubscription?.unsubscribe();
   }
 
   static async create(
@@ -260,8 +475,7 @@ class GameManager extends EventEmitter {
 
     const account = ethConnection.getAddress();
     const gameStateDownloader = new InitialGameStateDownloader(terminal.current);
-    const uiStateStorageManager = UIStateStorageManager.create(account, CORE_CONTRACT_ADDRESS);
-    const contractsAPI = await ContractsAPI.create(ethConnection, uiStateStorageManager, terminal);
+    const contractsAPI = await ContractsAPI.create(ethConnection);
 
     terminal.current?.println('Loading game data from disk...');
 
@@ -344,9 +558,13 @@ class GameManager extends EventEmitter {
       knownArtifacts,
       ethConnection,
       initialState.gptCreditPriceEther,
-      initialState.myGPTCredits,
-      uiStateStorageManager
+      initialState.myGPTCredits
     );
+
+    pollSetting(gameManager.getAccount(), Setting.AutoApproveNonPurchaseTransactions);
+
+    persistentChunkStore.setDiagnosticUpdater(gameManager);
+    contractsAPI.setDiagnosticUpdater(gameManager);
 
     // important that this happens AFTER we load the game state from the blockchain. Otherwise our
     // 'loading game state' contract calls will be competing with events from the blockchain that
@@ -391,11 +609,7 @@ class GameManager extends EventEmitter {
           // only reload planets if the toPlanet is in the map
           const localToPlanet = gameManager.entityStore.getPlanetWithId(toId);
           if (localToPlanet && isLocatable(localToPlanet)) {
-            const promises = [
-              gameManager.hardRefreshPlanet(fromId),
-              gameManager.hardRefreshPlanet(toId),
-            ];
-            await Promise.all(promises);
+            await gameManager.bulkHardRefreshPlanets([fromId, toId]);
             gameManager.emit(GameManagerEvent.PlanetUpdate);
           }
         }
@@ -414,23 +628,19 @@ class GameManager extends EventEmitter {
       })
       .on(ContractsAPIEvent.TxSubmitted, (unconfirmedTx: SubmittedTx) => {
         gameManager.persistentChunkStore.onEthTxSubmit(unconfirmedTx);
+        gameManager.onTxSubmit(unconfirmedTx);
       })
       .on(ContractsAPIEvent.TxConfirmed, async (unconfirmedTx: SubmittedTx) => {
         gameManager.persistentChunkStore.onEthTxComplete(unconfirmedTx.txHash);
         if (isUnconfirmedReveal(unconfirmedTx)) {
-          const promises = [
-            gameManager.hardRefreshPlanet(unconfirmedTx.locationId),
-            gameManager.hardRefreshPlayer(account),
-          ];
-          await Promise.all(promises);
+          await gameManager.hardRefreshPlanet(unconfirmedTx.locationId);
         } else if (isUnconfirmedInit(unconfirmedTx)) {
           gameManager.emit(GameManagerEvent.InitializedPlayer);
           // mining manager should be initialized already via joinGame, but just in case...
           gameManager.initMiningManager(unconfirmedTx.location.coords);
         } else if (isUnconfirmedMove(unconfirmedTx)) {
           const promises = [
-            gameManager.hardRefreshPlanet(unconfirmedTx.from),
-            gameManager.hardRefreshPlanet(unconfirmedTx.to),
+            gameManager.bulkHardRefreshPlanets([unconfirmedTx.from, unconfirmedTx.to]),
           ];
           if (unconfirmedTx.artifact) {
             promises.push(gameManager.hardRefreshArtifact(unconfirmedTx.artifact));
@@ -455,7 +665,7 @@ class GameManager extends EventEmitter {
             await gameManager.hardRefreshArtifact(unconfirmedTx.artifactId),
           ]);
         } else if (isUnconfirmedProspectPlanet(unconfirmedTx)) {
-          await gameManager.hardRefreshPlanet(unconfirmedTx.planetId);
+          await gameManager.softRefreshPlanet(unconfirmedTx.planetId);
         } else if (isUnconfirmedActivateArtifact(unconfirmedTx)) {
           await Promise.all([
             gameManager.hardRefreshPlanet(unconfirmedTx.locationId),
@@ -467,27 +677,18 @@ class GameManager extends EventEmitter {
             gameManager.hardRefreshArtifact(unconfirmedTx.artifactId),
           ]);
         } else if (isUnconfirmedWithdrawSilver(unconfirmedTx)) {
-          await Promise.all([
-            gameManager.hardRefreshPlanet(unconfirmedTx.locationId),
-            gameManager.hardRefreshPlayer(account),
-          ]);
+          await gameManager.softRefreshPlanet(unconfirmedTx.locationId);
         } else if (isUnconfirmedBuyGPTCredits(unconfirmedTx)) {
           await gameManager.refreshMyGPTCredits();
         }
 
         gameManager.entityStore.clearUnconfirmedTxIntent(unconfirmedTx);
-        if (gameManager.account) {
-          gameManager.balance = await gameManager.ethConnection.getBalance(gameManager.account);
-          gameManager.myBalance$.publish(gameManager.balance);
-        }
+        gameManager.onTxConfirmed(unconfirmedTx);
       })
       .on(ContractsAPIEvent.TxReverted, async (unconfirmedTx: SubmittedTx) => {
         gameManager.entityStore.clearUnconfirmedTxIntent(unconfirmedTx);
         gameManager.persistentChunkStore.onEthTxComplete(unconfirmedTx.txHash);
-        if (gameManager.account) {
-          gameManager.balance = await gameManager.ethConnection.getBalance(gameManager.account);
-          gameManager.myBalance$.publish(gameManager.balance);
-        }
+        gameManager.onTxReverted(unconfirmedTx);
       })
       .on(ContractsAPIEvent.RadiusUpdated, async () => {
         const newRadius = await gameManager.contractsAPI.getWorldRadius();
@@ -524,6 +725,13 @@ class GameManager extends EventEmitter {
       player.twitter = existingPlayerTwitter;
     }
     this.players.set(address, player);
+  }
+
+  // Dirty hack for only refreshing properties on a planet and nothing else
+  private async softRefreshPlanet(planetId: LocationId): Promise<void> {
+    const planet = await this.contractsAPI.getPlanetById(planetId);
+    if (!planet) return;
+    this.entityStore.replacePlanetFromContractData(planet);
   }
 
   private async hardRefreshPlanet(planetId: LocationId): Promise<void> {
@@ -577,10 +785,14 @@ class GameManager extends EventEmitter {
       }
     }
 
-    const planetsToUpdate = planetsToUpdateMap.values();
-
     for (let i = 0; i < planetIds.length; i++) {
-      const planet = planetsToUpdate.next().value;
+      const planetId = planetIds[i];
+      const planet = planetsToUpdateMap.get(planetId);
+
+      // This shouldn't really happen, but we are better off being safe - opposed to throwing
+      if (!planet) {
+        continue;
+      }
 
       const voyagesForPlanet = planetVoyageMap.get(planet.locationId);
       if (voyagesForPlanet) {
@@ -610,6 +822,57 @@ class GameManager extends EventEmitter {
     }
   }
 
+  private onTxSubmit(unminedTx: SubmittedTx): void {
+    this.terminal.current?.print(
+      `[TX SUBMIT] ${unminedTx.type} transaction (`,
+      TerminalTextStyle.Blue
+    );
+    this.terminal.current?.printLink(
+      `${unminedTx.txHash.slice(0, 6)}`,
+      () => {
+        window.open(`${BLOCK_EXPLORER_URL}/tx/${unminedTx.txHash}`);
+      },
+      TerminalTextStyle.White
+    );
+    this.terminal.current?.println(`) submitted to blockchain.`, TerminalTextStyle.Blue);
+
+    NotificationManager.getInstance().txSubmit(unminedTx);
+  }
+
+  private onTxConfirmed(unminedTx: SubmittedTx) {
+    this.terminal.current?.print(
+      `[TX CONFIRM] ${unminedTx.type} transaction (`,
+      TerminalTextStyle.Green
+    );
+    this.terminal.current?.printLink(
+      `${unminedTx.txHash.slice(0, 6)}`,
+      () => {
+        window.open(`${BLOCK_EXPLORER_URL}/tx/${unminedTx.txHash}`);
+      },
+      TerminalTextStyle.White
+    );
+    this.terminal.current?.println(`) confirmed.`, TerminalTextStyle.Green);
+
+    NotificationManager.getInstance().txConfirm(unminedTx);
+  }
+
+  private onTxReverted(unminedTx: SubmittedTx) {
+    this.terminal.current?.print(
+      `[TX ERROR] ${unminedTx.type} transaction (`,
+      TerminalTextStyle.Red
+    );
+    this.terminal.current?.printLink(
+      `${unminedTx.txHash.slice(0, 6)}`,
+      () => {
+        window.open(`${BLOCK_EXPLORER_URL}/tx/${unminedTx.txHash}`);
+      },
+      TerminalTextStyle.White
+    );
+    this.terminal.current?.println(`) reverted. Please try again.`, TerminalTextStyle.Red);
+
+    NotificationManager.getInstance().txRevert(unminedTx);
+  }
+
   private onTxIntentFail(txIntent: TxIntent, e: Error): void {
     const notifManager = NotificationManager.getInstance();
     notifManager.unsubmittedTxFail(txIntent, e);
@@ -619,14 +882,6 @@ class GameManager extends EventEmitter {
       TerminalTextStyle.Red
     );
     this.entityStore.clearUnconfirmedTxIntent(txIntent);
-  }
-
-  public setUIDataItem(key: UIDataKey, value: number | boolean): void {
-    this.uiStateStorageManager.setUIDataItem(key, value);
-  }
-
-  public getUIDataItem(key: UIDataKey): number | boolean {
-    return this.uiStateStorageManager.getUIDataItem(key);
   }
 
   public getGptCreditPriceEmitter(): Monomitter<number> {
@@ -677,6 +932,13 @@ class GameManager extends EventEmitter {
   }
 
   /**
+   * Dark Forest tokens can only be minted up to a certain time - get this time measured in seconds from epoch.
+   */
+  public getTokenMintEndTimeSeconds(): number {
+    return this.contractConstants.TOKEN_MINT_END_SECONDS;
+  }
+
+  /**
    * Gets the rarity of planets in the universe
    */
   public getPlanetRarity(): number {
@@ -719,7 +981,7 @@ class GameManager extends EventEmitter {
    * Gets all the map chunks that this client is aware of. Chunks may have come from
    * mining, or from importing map data.
    */
-  public getExploredChunks(): Iterable<ExploredChunkData> {
+  public getExploredChunks(): Iterable<Chunk> {
     return this.persistentChunkStore.allChunks();
   }
 
@@ -746,6 +1008,13 @@ class GameManager extends EventEmitter {
       planetLevelToRadii,
       updateIfStale
     );
+  }
+
+  /**
+   * Returns whether or not the current round has ended.
+   */
+  public isRoundOver(): boolean {
+    return Date.now() / 1000 > this.getTokenMintEndTimeSeconds();
   }
 
   /**
@@ -813,9 +1082,11 @@ class GameManager extends EventEmitter {
       this.useMockHash
     );
 
+    this.minerManager.setCores(getNumberSetting(this.account, Setting.MiningCores));
+
     this.minerManager.on(
       MinerManagerEvent.DiscoveredNewChunk,
-      (chunk: ExploredChunkData, miningTimeMillis: number) => {
+      (chunk: Chunk, miningTimeMillis: number) => {
         this.addNewChunk(chunk);
         this.hashRate = chunk.chunkFootprint.sideLength ** 2 / (miningTimeMillis / 1000);
         this.emit(GameManagerEvent.DiscoveredNewChunk, chunk);
@@ -846,9 +1117,7 @@ class GameManager extends EventEmitter {
    * Set the amount of cores to mine the universe with. More cores equals faster!
    */
   setMinerCores(nCores: number): void {
-    this.minerManager?.setCores(nCores);
-
-    this.terminal.current?.println(`Now mining on ${nCores} core(s).`);
+    setSetting(this.account, Setting.MiningCores, nCores + '');
   }
 
   /**
@@ -926,6 +1195,14 @@ class GameManager extends EventEmitter {
     return planetId && this.entityStore.getPlanetWithId(planetId);
   }
 
+  /**
+   * Gets a list of planets in the client's memory with the given ids. If a planet with the given id
+   * doesn't exist, no entry for that planet will be returned in the result.
+   */
+  getPlanetsWithIds(planetId: LocationId[]): Planet[] {
+    return planetId.map((id) => this.getPlanetWithId(id)).filter((p) => !!p) as Planet[];
+  }
+
   getStalePlanetWithId(planetId: LocationId): Planet | undefined {
     return this.entityStore.getPlanetWithId(planetId, false);
   }
@@ -937,7 +1214,11 @@ class GameManager extends EventEmitter {
     if (!this.account) {
       return 0;
     }
-    return this.players.get(this.account)?.withdrawnSilver || 0;
+    const player = this.players.get(this.account);
+    if (!player) {
+      return 0;
+    }
+    return player.withdrawnSilver + player.totalArtifactPoints;
   }
 
   /**
@@ -1108,7 +1389,7 @@ class GameManager extends EventEmitter {
     return this.persistentChunkStore.hasMinedChunk(chunkLocation);
   }
 
-  getChunk(chunkFootprint: Rectangle): ExploredChunkData | undefined {
+  getChunk(chunkFootprint: Rectangle): Chunk | undefined {
     return this.persistentChunkStore.getChunkByFootprint(chunkFootprint);
   }
 
@@ -1427,7 +1708,7 @@ class GameManager extends EventEmitter {
         this.hashConfig,
         this.useMockHash
       );
-      homePlanetFinder.on(MinerManagerEvent.DiscoveredNewChunk, (chunk: ExploredChunkData) => {
+      homePlanetFinder.on(MinerManagerEvent.DiscoveredNewChunk, (chunk: Chunk) => {
         chunkStore.addChunk(chunk);
         minedChunksCount++;
         if (minedChunksCount % 8 === 0) {
@@ -1783,6 +2064,174 @@ class GameManager extends EventEmitter {
   }
 
   /**
+   * We have two locations which planet state can live: on the server, and on the blockchain. We use
+   * the blockchain for the 'physics' of the universe, and the webserver for optional 'add-on'
+   * features, which are cryptographically secure, but live off-chain.
+   *
+   * This function loads the planet states which live on the server. Plays nicely with our
+   * notifications system and sets the appropriate loading state values on the planet.
+   */
+  public async refreshServerPlanetStates(planetIds: LocationId[]) {
+    const planets = this.getPlanetsWithIds(planetIds);
+
+    planetIds.forEach((id) =>
+      this.getGameObjects().updatePlanet(id, (p) => {
+        p.loadingServerState = true;
+      })
+    );
+
+    const messages = await getMessagesOnPlanets({ planets: planetIds });
+
+    planets.forEach((planet) => {
+      const previousPlanetEmoji = getEmojiMessage(planet);
+      planet.messages = messages[planet.locationId];
+      const nowPlanetEmoji = getEmojiMessage(planet);
+
+      // an emoji was added
+      if (previousPlanetEmoji === undefined && nowPlanetEmoji !== undefined) {
+        planet.emojiZoopAnimation = easeInAnimation(2000);
+        // an emoji was removed
+      } else if (nowPlanetEmoji === undefined && previousPlanetEmoji !== undefined) {
+        planet.emojiZoopAnimation = undefined;
+        planet.emojiZoopOutAnimation = emojiEaseOutAnimation(3000, previousPlanetEmoji.body.emoji);
+      }
+    });
+
+    planetIds.forEach((id) =>
+      this.getGameObjects().updatePlanet(id, (p) => {
+        p.loadingServerState = false;
+        p.needsServerRefresh = false;
+      })
+    );
+  }
+
+  /**
+   * If you are the owner of this planet, you can set an 'emoji' to hover above the planet.
+   * `emojiStr` must be a string that contains a single emoji, otherwise this function will throw an
+   * error.
+   *
+   * The emoji is stored off-chain in a postgres database. We verify planet ownership via a contract
+   * call from the webserver, and by verifying that the request to add (or remove) an emoji from a
+   * planet was signed by the owner.
+   */
+  public setPlanetEmoji(locationId: LocationId, emojiStr: string) {
+    return this.submitPlanetMessage(locationId, PlanetMessageType.EmojiFlag, {
+      emoji: emojiStr,
+    });
+  }
+
+  /**
+   * If you are the owner of this planet, you can delete the emoji that is hovering above the
+   * planet.
+   */
+  public async clearEmoji(locationId: LocationId) {
+    if (this.account === undefined) {
+      throw new Error("can't clear emoji: not logged in");
+    }
+
+    if (this.getPlanetWithId(locationId)?.unconfirmedClearEmoji) {
+      throw new Error(`can't clear emoji: alreading clearing emoji from ${locationId}`);
+    }
+
+    this.getGameObjects().updatePlanet(locationId, (p) => {
+      p.unconfirmedClearEmoji = true;
+    });
+
+    const request = await this.signMessage({
+      locationId,
+      ids: this.getPlanetWithId(locationId)?.messages?.map((m) => m.id) || [],
+    });
+
+    try {
+      await deleteMessages(request);
+    } catch (e) {
+      throw e;
+    } finally {
+      this.getGameObjects().updatePlanet(locationId, (p) => {
+        p.needsServerRefresh = true;
+        p.unconfirmedClearEmoji = false;
+      });
+    }
+
+    await this.refreshServerPlanetStates([locationId]);
+  }
+
+  /**
+   * The planet emoji feature is built on top of a more general 'Planet Message' system, which
+   * allows players to upload pieces of data called 'Message's to planets that they own. Emojis are
+   * just one type of message. Their implementation leaves the door open to more off-chain data.
+   */
+  private async submitPlanetMessage(
+    locationId: LocationId,
+    type: PlanetMessageType,
+    body: unknown
+  ) {
+    if (this.account === undefined) {
+      throw new Error("can't submit planet message not logged in");
+    }
+
+    if (this.getPlanetWithId(locationId)?.unconfirmedAddEmoji) {
+      throw new Error(`can't submit planet message: already submitting for planet ${locationId}`);
+    }
+
+    this.getGameObjects().updatePlanet(locationId, (p) => {
+      p.unconfirmedAddEmoji = true;
+    });
+
+    const request = await this.signMessage({
+      locationId,
+      sender: this.account,
+      type,
+      body,
+    });
+
+    try {
+      await addMessage(request);
+    } catch (e) {
+      throw e;
+    } finally {
+      this.getGameObjects().updatePlanet(locationId, (p) => {
+        p.unconfirmedAddEmoji = false;
+        p.needsServerRefresh = true;
+      });
+    }
+
+    await this.refreshServerPlanetStates([locationId]);
+  }
+
+  /**
+   * Returns a signed version of this message.
+   */
+  private async signMessage<T>(obj: T): Promise<SignedMessage<T>> {
+    if (!this.account) {
+      throw new Error('not logged in');
+    }
+
+    const stringified = JSON.stringify(obj);
+    const signature = await this.ethConnection.signMessage(stringified);
+
+    return {
+      signature,
+      sender: this.account,
+      message: obj,
+    };
+  }
+
+  /**
+   * Checks that a message signed by {@link GameManager#signMessage} was signed by the address that
+   * it claims it was signed by.
+   */
+  private async verifyMessage(message: SignedMessage<unknown>): Promise<boolean> {
+    const preSigned = JSON.stringify(message.message);
+
+    return this.ethConnection.verifySignature(
+      preSigned,
+      message.signature as string,
+      message.sender as EthAddress
+    );
+  }
+
+  /**
    * Submits a transaction to the blockchain to move the given amount of resources from
    * the given planet to the given planet.
    */
@@ -2118,8 +2567,8 @@ class GameManager extends EventEmitter {
    * as well as all of the planets contained in that chunk. Causes the client to load
    * all of the information about those planets from the blockchain.
    */
-  addNewChunk(chunk: ExploredChunkData): GameManager {
-    this.persistentChunkStore.updateChunk(chunk, false);
+  addNewChunk(chunk: Chunk): GameManager {
+    this.persistentChunkStore.addChunk(chunk, true);
     for (const planetLocation of chunk.planetLocations) {
       this.entityStore.addPlanetLocation(planetLocation);
 
@@ -2134,13 +2583,13 @@ class GameManager extends EventEmitter {
    * To add multiple chunks at once, use this function rather than `addNewChunk`, in order
    * to load all of the associated planet data in an efficient manner.
    */
-  async bulkAddNewChunks(chunks: ExploredChunkData[]): Promise<void> {
+  async bulkAddNewChunks(chunks: Chunk[]): Promise<void> {
     this.terminal.current?.println(
       'IMPORTING MAP: if you are importing a large map, this may take a while...'
     );
     const planetIdsToUpdate: LocationId[] = [];
     for (const chunk of chunks) {
-      this.persistentChunkStore.updateChunk(chunk, false);
+      this.persistentChunkStore.addChunk(chunk, true);
       for (const planetLocation of chunk.planetLocations) {
         this.entityStore.addPlanetLocation(planetLocation);
 
@@ -2457,8 +2906,37 @@ class GameManager extends EventEmitter {
     return this.entityStore.myArtifactsUpdated$;
   }
 
+  /**
+   * Returns an instance of a `Contract` from the ethersjs library. This is the library we use to
+   * connect to the blockchain. For documentation about how `Contract` works, see:
+   * https://docs.ethers.io/v5/api/contract/contract/
+   */
   public loadContract(contractAddress: string, contractABI: ContractInterface): Promise<Contract> {
     return this.ethConnection.loadContract(contractAddress, contractABI);
+  }
+
+  /**
+   * Gets a reference to the game's internal representation of the world state. This includes
+   * voyages, planets, artifacts, and active wormholes,
+   */
+  public getGameObjects(): GameObjects {
+    return this.entityStore;
+  }
+
+  /**
+   * Gets some diagnostic information about the game. Returns a copy, you can't modify it.
+   */
+  public getDiagnostics(): Diagnostics {
+    return { ...this.diagnostics };
+  }
+
+  /**
+   * Updates the diagnostic info of the game using the supplied function. Ideally, each spot in the
+   * codebase that would like to record a metric is able to update its specific metric in a
+   * convenient manner.
+   */
+  public updateDiagnostics(updateFn: (d: Diagnostics) => void): void {
+    updateFn(this.diagnostics);
   }
 }
 

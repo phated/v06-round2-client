@@ -1,7 +1,5 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Spacer } from '../Components/CoreUI';
-import { LoadingSpinner } from '../Components/LoadingSpinner';
 
 const Container = styled.div`
   width: 100vw;
@@ -13,25 +11,8 @@ const Container = styled.div`
   text-align: center;
 `;
 
-const HomeLink = styled.a`
-  text-decoration: underline;
-  cursor: pointer;
-`;
-
-const Title = styled.div``;
-
 export function ValhallaPage() {
-  return (
-    <Container>
-      <Title>valhalla</Title>
-      <Spacer height={32} />
-      NFTs awarded to the top players of each round
-      <br />
-      of Dark Forest v0.6.x will be enshrined here.
-      <Spacer height={16} />
-      <LoadingSpinner initialText='Coming June 2021...' />
-      <Spacer height={16} />
-      <HomeLink href='/'>home</HomeLink>
-    </Container>
-  );
+  window.location.href = 'https://valhalla.zkga.me';
+
+  return <Container></Container>;
 }

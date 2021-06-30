@@ -13,7 +13,6 @@ import {
   EmailResponse,
   submitPlayerEmail,
 } from '../../Backend/Network/UtilityServerAPI';
-import { useStoredUIState, UIDataKey } from '../../Backend/Storage/UIStateStorageManager';
 import { neverResolves } from '../../Backend/Utils/Utils';
 import {
   Wrapper,
@@ -65,10 +64,7 @@ export default function GameLandingPage() {
   const topLevelContainer = useRef<HTMLDivElement | null>(null);
   const [ethConnection] = useState(() => new EthConnection());
   const [gameManager, setGameManager] = useState<GameManager | undefined>();
-  const [terminalEnabled, setTerminalEnabled] = useStoredUIState<boolean>(
-    UIDataKey.terminalEnabled,
-    gameUIManagerRef.current
-  );
+  const [terminalEnabled, setTerminalEnabled] = useState(true);
   const [initRenderState, setInitRenderState] = useState(InitRenderState.NONE);
   const [step, setStep] = useState(TerminalPromptStep.NONE);
 
@@ -235,6 +231,16 @@ export default function GameLandingPage() {
       terminal.current?.print('12/25/2020        ', TerminalTextStyle.White);
       terminal.current?.println(
         '0xb05d95422bf8d5024f9c340e8f7bd696d67ee3a9',
+        TerminalTextStyle.White
+      );
+      terminal.current?.newline();
+      terminal.current?.print('    v0.6 r1    ');
+      terminal.current?.print('05/22/2021        ', TerminalTextStyle.White);
+      terminal.current?.printLink(
+        'Ansgar Dietrichs',
+        () => {
+          window.open('https://twitter.com/adietrichs');
+        },
         TerminalTextStyle.White
       );
       terminal.current?.newline();

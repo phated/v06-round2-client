@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { ReactSortable } from 'react-sortablejs';
 import GameUIManager from '../../Backend/GameLogic/GameUIManager';
 import { PluginId, SerializedPlugin } from '../../Backend/Plugins/SerializedPlugin';
-import { UIDataKey } from '../../Backend/Storage/UIStateStorageManager';
 import { Btn } from '../Components/Btn';
 import { MaxWidth, Spacer } from '../Components/CoreUI';
 import { RemoteModal } from '../Components/RemoteModal';
@@ -13,6 +12,8 @@ import { useEmitterValue } from '../Utils/EmitterHooks';
 import { OwnedPluginView } from '../Views/OwnedPluginView';
 import { ModalHook, ModalPane, ModalName } from '../Views/ModalPane';
 import { PluginEditorPane } from './PluginEditorPane';
+import { Setting, getBooleanSetting, setSetting } from '../Utils/SettingsHooks';
+import { v4 as uuidv4 } from 'uuid';
 
 function HelpContent() {
   return (
@@ -52,6 +53,7 @@ export function PluginLibraryPane({
 }) {
   const pluginManager = gameUIManager.getPluginManager();
   const plugins = useEmitterValue(pluginManager.plugins$, pluginManager.getLibrary());
+  const account = gameUIManager.getAccount();
   const [editorIsOpen, setEditorIsOpen] = useState(false);
   const [warningIsOpen, setWarningIsOpen] = useState(false);
   const [clicksUntilHasPlugins, setClicksUntilHasPlugins] = useState(8);
@@ -76,7 +78,7 @@ export function PluginLibraryPane({
    * closes the editor.
    */
   function openEditorForPlugin(pluginId?: PluginId): () => void {
-    if (!gameUIManager.getUIDataItem(UIDataKey.hasAcceptedPluginRisk)) {
+    if (!account || !getBooleanSetting(account, Setting.HasAcceptedPluginRisk)) {
       setWarningIsOpen(true);
       return () => {};
     }
@@ -102,13 +104,15 @@ export function PluginLibraryPane({
     if (pluginId && newCode) {
       pluginManager?.overwritePlugin(newName || 'no name', newCode, pluginId);
     } else {
-      pluginManager?.addPluginToLibrary(newName || 'no name', newCode || '');
+      // Auto generate a PluginId
+      const pluginId = uuidv4() as PluginId;
+      pluginManager?.addPluginToLibrary(pluginId, newName || 'no name', newCode || '');
     }
   };
 
   const onAcceptWarningClick = () => {
     if (clicksUntilHasPlugins === 1) {
-      gameUIManager.setUIDataItem(UIDataKey.hasAcceptedPluginRisk, true);
+      account && setSetting(account, Setting.HasAcceptedPluginRisk, true + '');
       setWarningIsOpen(false);
     }
 

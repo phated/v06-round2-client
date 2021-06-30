@@ -25,8 +25,11 @@ visible planet to the mouse.
 - [getPlanetRadii](backend_gamelogic_viewportentities.viewportentities.md#getplanetradii)
 - [getPlanetsAndChunks](backend_gamelogic_viewportentities.viewportentities.md#getplanetsandchunks)
 - [getVisiblePlanetLevels](backend_gamelogic_viewportentities.viewportentities.md#getvisibleplanetlevels)
+- [loadPlanetMessages](backend_gamelogic_viewportentities.viewportentities.md#loadplanetmessages)
 - [recalculateViewportChunks](backend_gamelogic_viewportentities.viewportentities.md#recalculateviewportchunks)
 - [recalculateViewportPlanets](backend_gamelogic_viewportentities.viewportentities.md#recalculateviewportplanets)
+- [replacePlanets](backend_gamelogic_viewportentities.viewportentities.md#replaceplanets)
+- [startRefreshing](backend_gamelogic_viewportentities.viewportentities.md#startrefreshing)
 - [updateLocationsAndChunks](backend_gamelogic_viewportentities.viewportentities.md#updatelocationsandchunks)
 
 ## Constructors
@@ -48,7 +51,7 @@ visible planet to the mouse.
 
 ### cachedExploredChunks
 
-• `Private` **cachedExploredChunks**: _Set_<[_ExploredChunkData_](_types_global_globaltypes.exploredchunkdata.md)\>
+• `Private` **cachedExploredChunks**: _Set_<[_Chunk_](_types_global_globaltypes.chunk.md)\>
 
 ---
 
@@ -124,7 +127,7 @@ viewport configuration, as well as the world radius.
 | Name            | Type                                                                                                           |
 | :-------------- | :------------------------------------------------------------------------------------------------------------- |
 | `cachedPlanets` | _Map_<LocationId, [_PlanetRenderInfo_](../interfaces/backend_gamelogic_viewportentities.planetrenderinfo.md)\> |
-| `chunks`        | _Set_<[_ExploredChunkData_](_types_global_globaltypes.exploredchunkdata.md)\>                                  |
+| `chunks`        | _Set_<[_Chunk_](_types_global_globaltypes.chunk.md)\>                                                          |
 
 ---
 
@@ -142,6 +145,14 @@ larger than one pixel.
 | `viewport` | [_default_](frontend_game_viewport.default.md) |
 
 **Returns:** _number_[]
+
+---
+
+### loadPlanetMessages
+
+▸ `Private` **loadPlanetMessages**(): _Promise_<void\>
+
+**Returns:** _Promise_<void\>
 
 ---
 
@@ -168,6 +179,28 @@ larger than one pixel.
 | Name       | Type                                           |
 | :--------- | :--------------------------------------------- |
 | `viewport` | [_default_](frontend_game_viewport.default.md) |
+
+**Returns:** _void_
+
+---
+
+### replacePlanets
+
+▸ `Private` **replacePlanets**(`newPlanetsInViewport`: LocatablePlanet[]): _void_
+
+#### Parameters
+
+| Name                   | Type              |
+| :--------------------- | :---------------- |
+| `newPlanetsInViewport` | LocatablePlanet[] |
+
+**Returns:** _void_
+
+---
+
+### startRefreshing
+
+▸ **startRefreshing**(): _void_
 
 **Returns:** _void_
 

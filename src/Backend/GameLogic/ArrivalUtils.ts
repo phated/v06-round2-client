@@ -7,9 +7,12 @@ import {
   Planet,
   Upgrade,
   PlanetType,
+  EmojiFlagBody,
+  PlanetMessage,
 } from '@darkforest_eth/types';
 import { isActivated } from './ArtifactUtils';
 import { ContractConstants } from '../../_types/darkforest/api/ContractsAPITypes';
+import { isEmojiFlagMessage } from '../../_types/global/GlobalTypes';
 
 // TODO: planet class, cmon, let's go
 export const blocksLeftToProspectExpiration = (
@@ -142,13 +145,15 @@ export const arrive = (
   // update toPlanet energy and silver right before arrival
   updatePlanetToTime(toPlanet, artifactsOnPlanet, arrival.arrivalTime * 1000, contractConstants);
 
-  // apply energy
+  if (toPlanet.destroyed) {
+    return;
+  }
 
+  // apply energy
   const { energyArriving } = arrival;
 
   if (arrival.player !== toPlanet.owner) {
     // attacking enemy - includes emptyAddress
-
     if (
       toPlanet.energy >
       Math.floor((energyArriving * CONTRACT_PRECISION * 100) / toPlanet.defense) /
@@ -189,3 +194,13 @@ export const arrive = (
     toPlanet.heldArtifactIds.push(arrival.artifactId);
   }
 };
+
+/**
+ * @todo ArrivalUtils has become a dumping ground for functions that should just live inside of a
+ * `Planet` class.
+ */
+export function getEmojiMessage(
+  planet: Planet | undefined
+): PlanetMessage<EmojiFlagBody> | undefined {
+  return planet?.messages?.find(isEmojiFlagMessage);
+}

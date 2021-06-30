@@ -2,6 +2,8 @@
 
 [Backend/GameLogic/GameObjects](../modules/backend_gamelogic_gameobjects.md).GameObjects
 
+Representation of the objects which exist in the world.
+
 ## Table of contents
 
 ### Constructors
@@ -46,6 +48,7 @@
 - [defaultPlanetFromLocation](backend_gamelogic_gameobjects.gameobjects.md#defaultplanetfromlocation)
 - [getAllOwnedPlanets](backend_gamelogic_gameobjects.gameobjects.md#getallownedplanets)
 - [getAllPlanets](backend_gamelogic_gameobjects.gameobjects.md#getallplanets)
+- [getAllPlanetsMap](backend_gamelogic_gameobjects.gameobjects.md#getallplanetsmap)
 - [getAllVoyages](backend_gamelogic_gameobjects.gameobjects.md#getallvoyages)
 - [getArtifactById](backend_gamelogic_gameobjects.gameobjects.md#getartifactbyid)
 - [getArtifactController](backend_gamelogic_gameobjects.gameobjects.md#getartifactcontroller)
@@ -86,6 +89,7 @@
 - [setArtifact](backend_gamelogic_gameobjects.gameobjects.md#setartifact)
 - [setPlanet](backend_gamelogic_gameobjects.gameobjects.md#setplanet)
 - [spaceTypeFromPerlin](backend_gamelogic_gameobjects.gameobjects.md#spacetypefromperlin)
+- [updatePlanet](backend_gamelogic_gameobjects.gameobjects.md#updateplanet)
 - [updatePlanetIfStale](backend_gamelogic_gameobjects.gameobjects.md#updateplanetifstale)
 - [updateScore](backend_gamelogic_gameobjects.gameobjects.md#updatescore)
 - [getSilverNeeded](backend_gamelogic_gameobjects.gameobjects.md#getsilverneeded)
@@ -95,7 +99,7 @@
 
 ### constructor
 
-\+ **new GameObjects**(`address`: _undefined_ \| EthAddress, `touchedPlanets`: _Map_<LocationId, Planet\>, `allTouchedPlanetIds`: _Set_<LocationId\>, `revealedLocations`: _Map_<LocationId, RevealedLocation\>, `artifacts`: _Map_<ArtifactId, Artifact\>, `allChunks`: _Iterable_<[_ExploredChunkData_](_types_global_globaltypes.exploredchunkdata.md)\>, `unprocessedArrivals`: _Map_<VoyageId, QueuedArrival\>, `unprocessedPlanetArrivalIds`: _Map_<LocationId, VoyageId[]\>, `contractConstants`: [_ContractConstants_](../interfaces/_types_darkforest_api_contractsapitypes.contractconstants.md), `worldRadius`: _number_): [_GameObjects_](backend_gamelogic_gameobjects.gameobjects.md)
+\+ **new GameObjects**(`address`: _undefined_ \| EthAddress, `touchedPlanets`: _Map_<LocationId, Planet\>, `allTouchedPlanetIds`: _Set_<LocationId\>, `revealedLocations`: _Map_<LocationId, RevealedLocation\>, `artifacts`: _Map_<ArtifactId, Artifact\>, `allChunks`: _Iterable_<[_Chunk_](_types_global_globaltypes.chunk.md)\>, `unprocessedArrivals`: _Map_<VoyageId, QueuedArrival\>, `unprocessedPlanetArrivalIds`: _Map_<LocationId, VoyageId[]\>, `contractConstants`: [_ContractConstants_](../interfaces/_types_darkforest_api_contractsapitypes.contractconstants.md), `worldRadius`: _number_): [_GameObjects_](backend_gamelogic_gameobjects.gameobjects.md)
 
 #### Parameters
 
@@ -106,7 +110,7 @@
 | `allTouchedPlanetIds`         | _Set_<LocationId\>                                                                                |
 | `revealedLocations`           | _Map_<LocationId, RevealedLocation\>                                                              |
 | `artifacts`                   | _Map_<ArtifactId, Artifact\>                                                                      |
-| `allChunks`                   | _Iterable_<[_ExploredChunkData_](_types_global_globaltypes.exploredchunkdata.md)\>                |
+| `allChunks`                   | _Iterable_<[_Chunk_](_types_global_globaltypes.chunk.md)\>                                        |
 | `unprocessedArrivals`         | _Map_<VoyageId, QueuedArrival\>                                                                   |
 | `unprocessedPlanetArrivalIds` | _Map_<LocationId, VoyageId[]\>                                                                    |
 | `contractConstants`           | [_ContractConstants_](../interfaces/_types_darkforest_api_contractsapitypes.contractconstants.md) |
@@ -120,11 +124,19 @@
 
 • `Private` `Readonly` **address**: _undefined_ \| EthAddress
 
+This address of the player that is currently logged in.
+
+**`todo`** move this, along with all other objects relating to the currently logged-on player into a
+new field: {@code player: PlayerInfo}
+
 ---
 
 ### arrivals
 
 • `Private` `Readonly` **arrivals**: _Map_<VoyageId, ArrivalWithTimer\>
+
+Map of arrivals to timers that fire when an arrival arrives, in case that handler needs to be
+cancelled for whatever reason.
 
 ---
 
@@ -132,14 +144,17 @@
 
 • `Readonly` **artifactUpdated$**: [_Monomitter_](../modules/frontend_utils_monomitter.md#monomitter)<ArtifactId\>
 
+Event emitter which publishes whenever an artifact has been updated.
+
 ---
 
 ### artifacts
 
 • `Private` `Readonly` **artifacts**: _Map_<ArtifactId, Artifact\>
 
-Cached index of all known artifact data. This should NEVER be set to directly!
-All set calls should occur via `GameObjects.setArtifact()`
+Cached index of all known artifact data.
+
+**`see`** The same warning applys as the one on [GameObjects.planets](backend_gamelogic_gameobjects.gameobjects.md#planets)
 
 ---
 
@@ -147,11 +162,19 @@ All set calls should occur via `GameObjects.setArtifact()`
 
 • `Private` `Readonly` **contractConstants**: [_ContractConstants_](../interfaces/_types_darkforest_api_contractsapitypes.contractconstants.md)
 
+Some of the game's parameters are downloaded from the blockchain. This allows the client to be
+flexible, and connect to any compatible set of Dark Forest contracts, download the parameters,
+and join the game, taking into account the unique configuration of those specific Dark Forest
+contracts.
+
 ---
 
 ### coordsToLocation
 
-• `Private` `Readonly` **coordsToLocation**: _Map_<string, WorldLocation\>
+• `Private` `Readonly` **coordsToLocation**: _Map_<CoordsString, WorldLocation\>
+
+Map from a stringified representation of an x-y coordinate to an object that contains some more
+information about the world at that location.
 
 ---
 
@@ -159,11 +182,19 @@ All set calls should occur via `GameObjects.setArtifact()`
 
 • `Readonly` **isBuyingCredits$**: [_Monomitter_](../modules/frontend_utils_monomitter.md#monomitter)<boolean\>
 
+Event emitter which publishes whenever the player begins and finishes (whether with a success
+or an error) buying gpt credits.
+
+**`todo`** move into `PlayerInfo`
+
 ---
 
 ### layeredMap
 
 • `Private` `Readonly` **layeredMap**: [_LayeredMap_](backend_gamelogic_layeredmap.layeredmap.md)
+
+This is a data structure that allows us to efficiently calculate which planets are visible on
+the player's screen given the viewport's position and size.
 
 ---
 
@@ -171,8 +202,9 @@ All set calls should occur via `GameObjects.setArtifact()`
 
 • `Private` `Readonly` **myArtifacts**: _Map_<ArtifactId, Artifact\>
 
-Cached index of artifacts owned by the player. This should NEVER be set to directly!
-All set calls should occur via `GameObjects.setArtifact()`
+Cached index of artifacts owned by the player.
+
+**`see`** The same warning applys as the one on [GameObjects.planets](backend_gamelogic_gameobjects.gameobjects.md#planets)
 
 ---
 
@@ -180,14 +212,18 @@ All set calls should occur via `GameObjects.setArtifact()`
 
 • `Readonly` **myArtifactsUpdated$**: [_Monomitter_](../modules/frontend_utils_monomitter.md#monomitter)<Map<ArtifactId, Artifact\>\>
 
+Whenever one of the player's artifacts are updated, this event emitter publishes. See
+[GameObjects.myPlanetsUpdated$](backend_gamelogic_gameobjects.gameobjects.md#myplanetsupdated$) for more info.
+
 ---
 
 ### myPlanets
 
 • `Private` `Readonly` **myPlanets**: _Map_<LocationId, Planet\>
 
-Cached index of planets owned by the player. This should NEVER be set to directly!
-All set calls should occur via `GameObjects.setPlanet()`
+Cached index of planets owned by the player.
+
+**`see`** The same warning applys as the one on [GameObjects.planets](backend_gamelogic_gameobjects.gameobjects.md#planets)
 
 ---
 
@@ -195,11 +231,21 @@ All set calls should occur via `GameObjects.setPlanet()`
 
 • `Readonly` **myPlanetsUpdated$**: [_Monomitter_](../modules/frontend_utils_monomitter.md#monomitter)<Map<LocationId, Planet\>\>
 
+Whenever a planet is updated, we publish to this event with a reference to a map from location
+id to planet. We need to rethink this event emitter because it currently publishes every time
+that any planet is updated, and if a lot of them are updated at once (which i think is the case
+once every two minutes) then this event emitter will publish a shitton of events.
+TODO: rethink this
+
 ---
 
 ### planetArrivalIds
 
 • `Private` `Readonly` **planetArrivalIds**: _Map_<LocationId, VoyageId[]\>
+
+Map from a location id (think of it as the unique id of each planet) to all the ids of the
+voyages that are arriving on that planet. These include both the player's own voyages, and also
+any potential invader's voyages.
 
 ---
 
@@ -207,11 +253,16 @@ All set calls should occur via `GameObjects.setPlanet()`
 
 • `Private` `Readonly` **planetLocationMap**: _Map_<LocationId, WorldLocation\>
 
+Map from location id (unique id of each planet) to some information about the location at which
+this planet is located, if this client happens to know the coordinates of this planet.
+
 ---
 
 ### planetUpdated$
 
 • `Readonly` **planetUpdated$**: [_Monomitter_](../modules/frontend_utils_monomitter.md#monomitter)<LocationId\>
+
+Event emitter which publishes whenever a planet is updated.
 
 ---
 
@@ -219,8 +270,21 @@ All set calls should occur via `GameObjects.setPlanet()`
 
 • `Private` `Readonly` **planets**: _Map_<LocationId, Planet\>
 
-Cached index of all known planet data. This should NEVER be set to directly!
-All set calls should occur via `GameObjects.setPlanet()`
+Cached index of all known planet data.
+
+Warning!
+
+This should NEVER be set to directly! Any time you want to update a planet, you must call the
+{@link GameObjects#setPlanet()} function. Following this rule enables us to reliably notify
+other parts of the client when a particular object has been updated. TODO: what is the best way
+to do this?
+
+**`todo`** extract the pattern we're using for the field tuples
+
+- {planets, myPlanets, myPlanetsUpdated, planetUpdated$}
+- {artifacts, myArtifacts, myArtifactsUpdated, artifactUpdated$}
+
+into some sort of class.
 
 ---
 
@@ -228,11 +292,17 @@ All set calls should occur via `GameObjects.setPlanet()`
 
 • `Private` `Readonly` **revealedLocations**: _Map_<LocationId, RevealedLocation\>
 
+Map from location ids to, if that location id has been revealed on-chain, the world coordinates
+of that location id, as well as some extra information regarding the circumstances of the
+revealing of this planet.
+
 ---
 
 ### touchedPlanetIds
 
 • `Private` `Readonly` **touchedPlanetIds**: _Set_<LocationId\>
+
+Set of all planet ids that we know have been interacted-with on-chain.
 
 ---
 
@@ -264,6 +334,19 @@ All set calls should occur via `GameObjects.setPlanet()`
 
 • `Private` `Optional` **unconfirmedReveal**: UnconfirmedReveal
 
+The following set of fields represent actions which the user has initiated on the blockchain,
+and have not yet completed. The nature of the blockchain is that transactions could take up to
+several minutes to confirm (depending on network congestion). This means that we need to make
+it clear to players that the action that they have initiated is indeed in progress, and that
+something is actually happening. See `Prospect.tsx` for example.
+
+The storage and retrieval of unconfirmed transactions could, and
+probablu should be abstracted into some sort of class which keeps in sync both _these_ fields
+and each of these fields counterparts in their corresponding entity objects (Planet, Artifact,
+etc.)
+
+**`todo`** these are good candidates for being in the `PlayerInfo` class.
+
 ---
 
 ### unconfirmedUpgrades
@@ -281,6 +364,8 @@ All set calls should occur via `GameObjects.setPlanet()`
 ### wormholes
 
 • `Private` `Readonly` **wormholes**: _Map_<ArtifactId, [_Wormhole_](../modules/_types_global_globaltypes.md#wormhole)\>
+
+Map from artifact ids to wormholes.
 
 ## Methods
 
@@ -337,6 +422,15 @@ IMPORTANT: Idempotent
 
 ▸ **clearUnconfirmedTxIntent**(`txIntent`: TxIntent): _void_
 
+Whenever a transaction that the user initiated either succeeds or fails, we need to clear the
+fact that it was in progress from the event's corresponding entities. For example, whenever a
+transaction that sends a voyage from one planet to another either succeeds or fails, we need to
+remove the dashed line that connected them.
+
+Making sure that we never miss something here is very tedious.
+
+**`todo`** Make this less tedious.
+
 #### Parameters
 
 | Name       | Type     |
@@ -369,6 +463,13 @@ so we need to generate their data optimistically in the client
 
 ▸ **getAllOwnedPlanets**(): Planet[]
 
+Returns all the planets in the game which this client is aware of that have an owner, as a map
+from their id to the planet
+
+**`tutorial`** For plugin developers!
+
+**`see`** Warning in {@link GameObjects.getAllPlanets()}
+
 **Returns:** Planet[]
 
 ---
@@ -377,13 +478,39 @@ so we need to generate their data optimistically in the client
 
 ▸ **getAllPlanets**(): _Iterable_<Planet\>
 
+Returns all planets in the game.
+
+Warning! Simply iterating over this is not performant, and is meant for scripting.
+
+**`tutorial`** For plugin developers!
+
 **Returns:** _Iterable_<Planet\>
+
+---
+
+### getAllPlanetsMap
+
+▸ **getAllPlanetsMap**(): _Map_<LocationId, Planet\>
+
+Returns all planets in the game, as a map from their location id to the planet.
+
+**`tutorial`** For plugin developers!
+
+**`see`** Warning in {@link GameObjects.getAllPlanets()}
+
+**Returns:** _Map_<LocationId, Planet\>
 
 ---
 
 ### getAllVoyages
 
 ▸ **getAllVoyages**(): QueuedArrival[]
+
+Returns all voyages that are scheduled to arrive at some point in the future.
+
+**`tutorial`** For plugin developers!
+
+**`see`** Warning in {@link GameObjects.getAllPlanets()}
 
 **Returns:** QueuedArrival[]
 
@@ -752,6 +879,23 @@ returns undefined
 
 ▸ **onTxIntent**(`txIntent`: TxIntent): _void_
 
+We call this function whenever the user requests that we send a transaction to the blockchain
+with their localstorage wallet. You can think of it as one of the hubs which connects
+`GameObjects` to the rest of the world.
+
+Inside this function, we update the relevant internal game objects to reflect that the user has
+requested a particular action. Additionally, we publish the appropriate events to the relevant
+[Monomitter](../modules/frontend_utils_monomitter.md#monomitter) instances that are stored in this class.
+
+In the case of something like prospecting for an artifact, this allows us to display a spinner
+text which says "Prospecting..."
+
+In the case of the user sending energy from one planet to another planet, this allows us to
+display a dashed line between the two planets in their new voyage.
+
+Whenever we update an entity, we must do it via that entity's type's corresponding
+`set<EntityType>` function, in order for us to publish these events.
+
 #### Parameters
 
 | Name       | Type     |
@@ -839,18 +983,18 @@ received some artifact data from the contract. update our stores
 
 ### replacePlanetFromContractData
 
-▸ **replacePlanetFromContractData**(`planet`: Planet, `updatedArrivals`: QueuedArrival[], `updatedArtifactsOnPlanet`: ArtifactId[], `revealedLocation?`: RevealedLocation): _void_
+▸ **replacePlanetFromContractData**(`planet`: Planet, `updatedArrivals?`: QueuedArrival[], `updatedArtifactsOnPlanet?`: ArtifactId[], `revealedLocation?`: RevealedLocation): _void_
 
 received some planet data from the contract. update our stores
 
 #### Parameters
 
-| Name                       | Type             |
-| :------------------------- | :--------------- |
-| `planet`                   | Planet           |
-| `updatedArrivals`          | QueuedArrival[]  |
-| `updatedArtifactsOnPlanet` | ArtifactId[]     |
-| `revealedLocation?`        | RevealedLocation |
+| Name                        | Type             |
+| :-------------------------- | :--------------- |
+| `planet`                    | Planet           |
+| `updatedArrivals?`          | QueuedArrival[]  |
+| `updatedArtifactsOnPlanet?` | ArtifactId[]     |
+| `revealedLocation?`         | RevealedLocation |
 
 **Returns:** _void_
 
@@ -903,6 +1047,24 @@ This function also handles managing planet update messages and indexing the map 
 | `perlin` | _number_ |
 
 **Returns:** SpaceType
+
+---
+
+### updatePlanet
+
+▸ **updatePlanet**(`id`: LocationId, `updateFn`: (`p`: Planet) => _void_): _void_
+
+Given a planet id, update the state of the given planet by calling the given update function.
+If the planet was updated, then also publish the appropriate event.
+
+#### Parameters
+
+| Name       | Type                    |
+| :--------- | :---------------------- |
+| `id`       | LocationId              |
+| `updateFn` | (`p`: Planet) => _void_ |
+
+**Returns:** _void_
 
 ---
 

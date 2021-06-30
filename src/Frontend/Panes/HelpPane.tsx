@@ -4,7 +4,10 @@ import styled from 'styled-components';
 import TutorialManager from '../../Backend/GameLogic/TutorialManager';
 import { White } from '../Components/Text';
 import dfstyles from '../Styles/dfstyles';
-import { TOKEN_MINT_END } from '../../Backend/GameLogic/ArtifactUtils';
+import { MythicLabel } from '../Components/Labels/MythicLabel';
+import { ScoreLabel } from '../Components/Labels/KeywordLabels';
+import { LegendaryLabel } from '../Components/Labels/LegendaryLabel';
+import { useUIManager } from '../Utils/AppHooks';
 
 const HelpWrapper = styled.div`
   width: 36em;
@@ -42,8 +45,10 @@ const BlueBG = styled.span`
   color: ${dfstyles.colors.text};
 `;
 
+// TODO: make this pane aware of end time
 export function HelpPane({ hook }: { hook: ModalHook }) {
-  const isOver = Date.now() > TOKEN_MINT_END;
+  const uiManager = useUIManager();
+
   return (
     <ModalPane hook={hook} title='Help' name={ModalName.Help}>
       <HelpWrapper>
@@ -51,16 +56,26 @@ export function HelpPane({ hook }: { hook: ModalHook }) {
           This window gives additional information about the game. When you are done reading, click
           the <White>X</White> in the upper-right corner to close this window.
         </p>
-        {isOver && (
+        {/*isOver && (
           <>
-            <p className='title'>Round 1 Complete</p>
+            <p className='title'>Round 2 Complete</p>
             <p>
-              Dark Forest v0.6.0 Round 1 is now complete! Scores are being compiled and winners will
+              Dark Forest v0.6 Round 2 is now complete! Scores are being compiled and winners will
               be announced shortly. Also, Artifacts will no longer be mintable. Thanks for playing!
             </p>
           </>
-        )}
-        <p className='title'>Welcome to Dark Forest v0.6.0!</p>
+        )*/}
+        <p className='title'>Dark Forest v0.6 Round 2 - Inspired Hallowed</p>
+        <p>
+          <a onClick={() => window.open('https://blog.zkga.me')}>Official Info and Announcements</a>
+        </p>
+        <p>
+          <a onClick={() => TutorialManager.getInstance().reset(uiManager.getAccount())}>
+            Reset Tutorial
+          </a>
+        </p>
+
+        <p className='title'>Welcome!</p>
         <p>
           This window gives additional information about the game. When you are done reading, click
           the <White>X</White> in the upper-right corner to close this window.
@@ -83,12 +98,13 @@ export function HelpPane({ hook }: { hook: ModalHook }) {
         <p>
           Also scattered through the universe are <White>Asteroid Fields</White>, which produce{' '}
           <White>Silver</White>. Silver can be sent to planets and can be spent on{' '}
-          <White>Upgrades</White>. Producing and spending silver increases your score.
+          <White>Upgrades</White>. Withdrawing silver from spacetime rips increases your{' '}
+          <ScoreLabel />.
         </p>
         <p>
-          Some planets contain <White>Artifacts</White>. Artifacts can be harvested and deposited
-          onto planets, buffing their stats. Artifacts are ERC721 tokens that can be traded with
-          other players.
+          Some planets contain <White>Artifacts</White> - ERC721 tokens that can be traded with
+          other players. Artifacts can be harvested and deposited onto planets, buffing their stats.
+          Harvesting artifacts also increases your <ScoreLabel />
         </p>
         <p>
           If you need help, click "Reset Tutorial" above, or check out the FAQ. You can also hold
@@ -97,19 +113,16 @@ export function HelpPane({ hook }: { hook: ModalHook }) {
         </p>
         <p className='title'>Prizes and Scoring</p>
         <p>
-          A snapshot of scores will be taken on <White>June 6, 2021</White>. At that time, the top
-          63 highest-scoring players will be awarded prizes from a pool 63 prize planets. Your score
-          is determined by the total amount of <White>Silver</White> you have withdrawn from the
-          universe. You can see the current rankings by scrolling down on the landing page of the
+          A snapshot of scores will be taken on <White>July 3, 2021</White> at 9PM Pacific Time. At
+          that time, the top 63 highest-scoring players will be awarded prizes from a pool 63 prize
+          planets. You can see the current rankings by scrolling down on the landing page of the
           game.
         </p>
-
-        <p className='title'>Some Links</p>
         <p>
-          <a onClick={() => TutorialManager.getInstance().reset()}>Reset Tutorial</a>
-        </p>
-        <p>
-          <a onClick={() => window.open('https://blog.zkga.me/df-05-faq')}>FAQ</a>
+          Your score is determined by the total amount of <White>Silver</White> you have withdrawn
+          from the universe, plus additional bonuses for finding artifacts. Artifacts of different
+          rarities are worth different amounts of points: Common are 5k, Rare are 20k, Epic are
+          200k, <LegendaryLabel /> are 3M, and <MythicLabel /> are 20M.
         </p>
       </HelpWrapper>
     </ModalPane>

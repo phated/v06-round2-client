@@ -1,6 +1,7 @@
 import { LocatablePlanet, LocationId, PlanetLevel, WorldCoords } from '@darkforest_eth/types';
 import Viewport from '../../Frontend/Game/Viewport';
-import { ExploredChunkData, isLocatable } from '../../_types/global/GlobalTypes';
+import { Chunk, isLocatable } from '../../_types/global/GlobalTypes';
+import { planetLevelToAnimationSpeed, sinusoidalAnimation } from '../Utils/Animation';
 import GameManager from './GameManager';
 import GameUIManager from './GameUIManager';
 
@@ -22,17 +23,29 @@ export class ViewportEntities {
   private readonly gameManager: GameManager;
   private readonly uiManager: GameUIManager;
 
-  private cachedExploredChunks: Set<ExploredChunkData> = new Set();
+  private cachedExploredChunks: Set<Chunk> = new Set();
   private cachedPlanets: Map<LocationId, PlanetRenderInfo> = new Map();
   private cachedPlanetsAsList: PlanetRenderInfo[] = [];
 
   public constructor(gameManager: GameManager, gameUIManager: GameUIManager) {
     this.gameManager = gameManager;
     this.uiManager = gameUIManager;
+    this.startRefreshing();
+  }
+
+  public startRefreshing() {
+    setInterval(() => {
+      this.loadPlanetMessages();
+    }, 10 * 1000);
   }
 
   public getPlanetsAndChunks() {
     this.updateLocationsAndChunks();
+
+    this.cachedPlanetsAsList.forEach((p) => {
+      p.planet.emojiBobAnimation?.update();
+      p.planet.emojiZoopAnimation?.update();
+    });
 
     return {
       chunks: this.cachedExploredChunks,
@@ -44,6 +57,12 @@ export class ViewportEntities {
     const viewport = Viewport.getInstance();
     this.recalculateViewportPlanets(viewport);
     this.recalculateViewportChunks(viewport);
+
+    this.uiManager.updateDiagnostics((d) => {
+      d.visibleChunks = this.cachedExploredChunks.size;
+      d.visiblePlanets = this.cachedPlanets.size;
+      d.totalPlanets = this.gameManager.getGameObjects().getAllPlanetsMap().size;
+    });
   }
 
   private recalculateViewportChunks(viewport: Viewport) {
@@ -51,10 +70,13 @@ export class ViewportEntities {
       return;
     }
 
-    const chunks = new Set<ExploredChunkData>();
+    const chunks = new Set<Chunk>();
 
     for (const exploredChunk of this.uiManager.getExploredChunks()) {
-      if (viewport.intersectsViewport(exploredChunk)) {
+      if (
+        viewport.intersectsViewport(exploredChunk) &&
+        viewport.worldToCanvasDist(exploredChunk.chunkFootprint.sideLength) >= 3
+      ) {
         chunks.add(exploredChunk);
       }
     }
@@ -62,10 +84,18 @@ export class ViewportEntities {
     this.cachedExploredChunks = chunks;
   }
 
-  private recalculateViewportPlanets(viewport: Viewport) {
-    this.cachedPlanets.clear();
+  private async loadPlanetMessages() {
+    const planetIds = this.cachedPlanetsAsList
+      // by definition, only planets that are owned can have planet messages on them, so they must
+      // also be 'in the contract'
+      .filter((p) => p.planet.isInContract)
+      .map((p) => p.planet.locationId);
 
-    const radii = this.getPlanetRadii(viewport);
+    this.gameManager.refreshServerPlanetStates(planetIds);
+  }
+
+  private recalculateViewportPlanets(viewport: Viewport) {
+    const radii = this.getPlanetRadii(Viewport.getInstance());
 
     const planetsInViewport = this.gameManager.getPlanetsInWorldRectangle(
       viewport.getViewportPosition().x - viewport.widthInWorldUnits / 2,
@@ -83,14 +113,37 @@ export class ViewportEntities {
       planetsInViewport.push(selectedPlanet);
     }
 
-    planetsInViewport.forEach((planetInGameManager) => {
-      if (planetInGameManager) {
-        this.cachedPlanets.set(planetInGameManager.locationId, {
-          planet: planetInGameManager,
-          radii: radii.get(planetInGameManager.planetLevel) as Radii,
-        });
+    this.replacePlanets(planetsInViewport);
+  }
+
+  private replacePlanets(newPlanetsInViewport: LocatablePlanet[]) {
+    const radii = this.getPlanetRadii(Viewport.getInstance());
+    const planetsToRemove = new Set(Array.from(this.cachedPlanets.keys()));
+
+    newPlanetsInViewport.forEach((planet: LocatablePlanet) => {
+      planetsToRemove.delete(planet.locationId);
+
+      const newPlanetInfo: PlanetRenderInfo = {
+        planet: planet,
+        radii: radii.get(planet.planetLevel) as Radii,
+      };
+
+      if (!planet.emojiBobAnimation) {
+        planet.emojiBobAnimation = sinusoidalAnimation(
+          planetLevelToAnimationSpeed(planet.planetLevel)
+        );
       }
+
+      this.cachedPlanets.set(planet.locationId, newPlanetInfo);
     });
+
+    for (const toRemove of planetsToRemove) {
+      this.cachedPlanets.delete(toRemove);
+      const planet = this.cachedPlanets.get(toRemove);
+      if (planet) {
+        planet.planet.emojiBobAnimation = undefined;
+      }
+    }
 
     this.cachedPlanetsAsList = Array.from(this.cachedPlanets.values());
   }

@@ -5,6 +5,9 @@ import {
   LocatablePlanet,
   WorldCoords,
   WorldLocation,
+  EmojiFlagBody,
+  PlanetMessageType,
+  PlanetMessage,
 } from '@darkforest_eth/types';
 import GameManager from '../../Backend/GameLogic/GameManager';
 import GameUIManager from '../../Backend/GameLogic/GameUIManager';
@@ -49,12 +52,26 @@ export function isLocatable(planet: Planet): planet is LocatablePlanet {
   return (planet as LocatablePlanet).location !== undefined;
 }
 
+export function isEmojiFlagMessage(
+  planetMessage: PlanetMessage<unknown>
+): planetMessage is PlanetMessage<EmojiFlagBody> {
+  return planetMessage.body !== undefined && planetMessage.type === PlanetMessageType.EmojiFlag;
+}
+
+/**
+ * Ok, this is gonna sound weird, but all rectangles are squares. Also, we only permit side lengths
+ * that are powers of two, and ALSO!! The side lengths must be between {@link MIN_CHUNK_SIZE} and
+ * {@link MAX_CHUNK_SIZE}.
+ */
 export interface Rectangle {
   bottomLeft: WorldCoords;
   sideLength: number;
 }
 
-export class ExploredChunkData {
+/**
+ * Represents a fully mined aligned square.
+ */
+export class Chunk {
   chunkFootprint: Rectangle;
   planetLocations: WorldLocation[];
   perlin: number; // approximate avg perlin value. used for rendering

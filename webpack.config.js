@@ -40,8 +40,13 @@ module.exports = {
   module: {
     rules: [
       {
+        test: /\.[jt]sx?$/,
+        include: /embedded_plugins/,
+        use: ['raw-loader', 'ts-loader'],
+      },
+      {
         test: /\.ts(x?)$/,
-        exclude: /node_modules/,
+        exclude: /(node_modules|embedded_plugins|plugins)/,
         loader: 'ts-loader',
         options: {
           getCustomTransformers: () => ({
@@ -92,8 +97,7 @@ module.exports = {
     // The string values are fallbacks if the env variable is not set
     new EnvironmentPlugin({
       NODE_ENV: 'development',
-      // default: 'https://rpc.xdaichain.com/'
-      DEFAULT_RPC: 'http://localhost:8555', // or 'https://rpc-df.xdaichain.com/'
+      DEFAULT_RPC: 'https://rpc-df.xdaichain.com/',
       CONVERSATION_API_HOST: isProd ? 'https://api.zkga.me' : 'http://localhost:3000',
       LEADERBOARD_API: isProd ? 'https://api.zkga.me' : 'http://localhost:3000',
       WEBSERVER_URL: isProd ? 'https://api.zkga.me' : 'http://localhost:3000',

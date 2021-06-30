@@ -28,6 +28,7 @@
 - [overlay2dRenderer](frontend_renderers_gamerenderer_renderer.default.md#overlay2drenderer)
 - [planetRenderManager](frontend_renderers_gamerenderer_renderer.default.md#planetrendermanager)
 - [planetRenderer](frontend_renderers_gamerenderer_renderer.default.md#planetrenderer)
+- [previousRenderTimestamp](frontend_renderers_gamerenderer_renderer.default.md#previousrendertimestamp)
 - [quasarRenderer](frontend_renderers_gamerenderer_renderer.default.md#quasarrenderer)
 - [rectRenderer](frontend_renderers_gamerenderer_renderer.default.md#rectrenderer)
 - [ringRenderer](frontend_renderers_gamerenderer_renderer.default.md#ringrenderer)
@@ -42,9 +43,9 @@
 
 ### Methods
 
-- [debug](frontend_renderers_gamerenderer_renderer.default.md#debug)
 - [draw](frontend_renderers_gamerenderer_renderer.default.md#draw)
 - [loop](frontend_renderers_gamerenderer_renderer.default.md#loop)
+- [recordRender](frontend_renderers_gamerenderer_renderer.default.md#recordrender)
 - [setup](frontend_renderers_gamerenderer_renderer.default.md#setup)
 - [destroy](frontend_renderers_gamerenderer_renderer.default.md#destroy)
 - [initialize](frontend_renderers_gamerenderer_renderer.default.md#initialize)
@@ -176,6 +177,12 @@
 
 ---
 
+### previousRenderTimestamp
+
+• `Private` **previousRenderTimestamp**: _number_
+
+---
+
 ### quasarRenderer
 
 • **quasarRenderer**: [_QuasarRenderer_](frontend_renderers_gamerenderer_entities_quasarrenderer.quasarrenderer.md)
@@ -242,20 +249,6 @@
 
 ## Methods
 
-### debug
-
-▸ **debug**(`interval?`: _number_): _boolean_
-
-#### Parameters
-
-| Name       | Type     | Default value |
-| :--------- | :------- | :------------ |
-| `interval` | _number_ | 120           |
-
-**Returns:** _boolean_
-
----
-
 ### draw
 
 ▸ `Private` **draw**(): _void_
@@ -267,6 +260,20 @@
 ### loop
 
 ▸ `Private` **loop**(): _void_
+
+**Returns:** _void_
+
+---
+
+### recordRender
+
+▸ `Private` **recordRender**(`now`: _number_): _void_
+
+#### Parameters
+
+| Name  | Type     |
+| :---- | :------- |
+| `now` | _number_ |
 
 **Returns:** _void_
 

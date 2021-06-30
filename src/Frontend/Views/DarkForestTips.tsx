@@ -1,5 +1,6 @@
 import _ from 'lodash';
 import React, { useState } from 'react';
+import { useCallback } from 'react';
 import { useEffect } from 'react';
 import styled from 'styled-components';
 import { White } from '../Components/Text';
@@ -36,25 +37,32 @@ const CYCLE_TIPS_INTERVAL = 10 * 1000;
 
 export function DarkForestTips() {
   const [tipIndex, setTipIndex] = useState(0);
-  const [interval, setIntervalHandle] = useState<ReturnType<typeof setInterval> | undefined>();
+  const [_interval, setIntervalHandle] = useState<ReturnType<typeof setInterval> | undefined>();
 
-  const nextTipClicked = () => {
-    if (interval) clearInterval(interval);
-    setTipIndex((tipIndex) => (tipIndex + 1) % shuffledTips.length);
-  };
+  const incrementTipIndex = useCallback((increment: number, shouldClearInterval = false) => {
+    if (shouldClearInterval) {
+      setIntervalHandle((interval) => {
+        if (interval) {
+          clearInterval(interval);
+        }
+        return undefined;
+      });
+    }
+
+    setTipIndex((tipIndex) => (tipIndex + increment + shuffledTips.length) % shuffledTips.length);
+  }, []);
 
   useEffect(() => {
-    const intervalHandle = setInterval(
-      () => setTipIndex((tipIndex) => (tipIndex + 1) % shuffledTips.length),
-      CYCLE_TIPS_INTERVAL
-    );
+    const intervalHandle = setInterval(() => incrementTipIndex(1), CYCLE_TIPS_INTERVAL);
     setIntervalHandle(intervalHandle);
     return () => clearInterval(intervalHandle);
-  }, []);
+  }, [incrementTipIndex]);
 
   return (
     <>
-      <White>Dark Forest Tips</White> <TextButton onClick={nextTipClicked}>next tip</TextButton>
+      <White>Dark Forest Tips</White>{' '}
+      <TextButton onClick={() => incrementTipIndex(-1, true)}>previous</TextButton>{' '}
+      <TextButton onClick={() => incrementTipIndex(1, true)}>next</TextButton>
       <br />
       <br />
       <TipText>{shuffledTips[tipIndex]}</TipText>
@@ -81,7 +89,7 @@ const tips = [
   "There are many different ways to enjoy Dark Forest - as long as you're having fun, you're doing it right.",
   'Be careful when capturing planets - if you attack a player-owned planet, it may look like an act of war!',
   'A planet can have at most one active artifact.',
-  'Withdrawing silver (via Spacetime Rips) adds to your score, and does nothing else.',
+  'Withdrawing silver (via Spacetime Rips) and finding artifacts adds to your score.',
   'Withdrawing an artifact (via a Spacetime Rip) gives you full control of that artifact as an ERC 721 token. You can deposit artifacts you have withdrawn back into the universe via Spacetime Rips.',
   'You can use plugins to enhance your capabilities by automating repetitive tasks. The top players are probably using plugins (:',
   'Quasars can store lots of energy and silver, at the expense of being able to generate neither.',
@@ -104,7 +112,7 @@ const tips = [
   'Defense upgrades make your planets less vulnerable to attack, Range upgrades make your voyages go further and decay less, and Speed upgrades make your voyages go much faster.',
   'Wormhole artifacts reduce the effective distance between 2 planets. Try using them to link 2 planets very far apart!',
   'Upon deactivation, most artifacts must cooldown for 24-hours before they can be activated again. However, wormholes go on a 48-hour cooldown!',
-  'Photoid Cannon artifacts will debuff your planet on activation, but get a massive stat boost for the first voyage from the planet after that 12 hours. Photoid Cannon artifacts are destroyed upon use.',
+  'Photoid Cannon artifacts will debuff your planet on activation, but get a massive stat boost for the first voyage from the planet after that 4 hours. Photoid Cannon artifacts are destroyed upon use.',
   "Planetary Shield artifacts will massively boost a planet's defense, but at the cost of energy and energy growth stats. Planetary Shield artifacts are destroyed upon deactivation.",
   "Bloom Filter artifacts instantly set a planet's energy and silver to full, but are destroyed upon activation. Try using them on a Quasar!",
   'Dark Forest exists on the blockchain, so you can play with an entirely different client if you want.',

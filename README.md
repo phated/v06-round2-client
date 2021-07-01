@@ -11,13 +11,9 @@
 
 Dark Forest is built and tested using Node.js v14.15.x and might not run properly on other Node.js versions. We
 
-## Windows
+For Windows: Install node.js from their site, I've tested it working with v14.17.
 
-Install node.js from their site, I've tested it working with v14.17.
-
-## Linux
-
-Dark Forest team recommends using NVM to switch between multiple Node.js version on your machine.
+For Linux: Dark Forest team recommends using NVM to switch between multiple Node.js version on your machine.
 
 ```sh
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash

@@ -18,7 +18,6 @@ import {
   ModalPluginIcon,
   ModalYourArtifactsIcon,
   ModalSettingsIcon,
-  ModalPlanetDexIcon,
   ModalTwitterVerifyIcon,
   ModalArtifactIcon,
   ModalHatIcon,
@@ -28,7 +27,6 @@ import {
 } from './ModalIcon';
 import OnboardingPane from '../Panes/OnboardingPane';
 import { PlanetDetailsPane } from '../Panes/PlanetDetailsPane';
-import { PlanetDexPane } from '../Panes/PlanetDexPane';
 import { PlayerArtifactsPane } from '../Panes/PlayerArtifactsPane';
 import { PluginLibraryPane } from '../Panes/PluginLibraryPane';
 import { PrivatePane } from '../Panes/PrivatePane';
@@ -67,7 +65,6 @@ export function GameWindowLayout() {
   const planetDetHook = useState<boolean>(false);
 
   const helpHook = useState<boolean>(false);
-  const planetdexHook = useState<boolean>(false);
   const yourArtifactsHook = useState<boolean>(false);
   const upgradeDetHook = useState<boolean>(false);
   const twitterVerifyHook = useState<boolean>(false);
@@ -114,8 +111,6 @@ export function GameWindowLayout() {
       paneHook = twitterBroadcastHook;
     } else if (keyUp.value === TOGGLE_UPGRADES_PANE) {
       paneHook = upgradeDetHook;
-    } else if (keyUp.value === TOGGLE_PLANET_DEX_PANE) {
-      paneHook = planetdexHook;
     } else if (keyUp.value === TOGGLE_ARTIFACTS_DEX_PANE) {
       paneHook = yourArtifactsHook;
     } else if (keyUp.value === TOGGLE_DIAGNOSTICS_PANE) {
@@ -132,7 +127,6 @@ export function GameWindowLayout() {
     planetDetHook,
     twitterBroadcastHook,
     upgradeDetHook,
-    planetdexHook,
     yourArtifactsHook,
     diagnosticsHook,
   ]);
@@ -156,7 +150,6 @@ export function GameWindowLayout() {
       <div ref={modalsContainerRef}>
         <PlanetDetailsPane hook={planetDetHook} hatHook={hatHook} />
         <HelpPane hook={helpHook} />
-        <PlanetDexPane hook={planetdexHook} />
         <UpgradeDetailsPane hook={upgradeDetHook} />
         <TwitterVerifyPane hook={twitterVerifyHook} />
         <BroadcastPane hook={twitterBroadcastHook} />
@@ -200,7 +193,6 @@ export function GameWindowLayout() {
                 <ModalHelpIcon hook={helpHook} />
                 <ModalPluginIcon hook={pluginsHook} />
                 <ModalYourArtifactsIcon hook={yourArtifactsHook} />
-                <ModalPlanetDexIcon hook={planetdexHook} />
                 <ModalTwitterVerifyIcon hook={twitterVerifyHook} />
               </MenuBarSection>
               <MenuBarSection collapsible>
